@@ -20,6 +20,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/CMakeFiles
+            build/**/*.o
+            build/**/*.obj
+          key: ${{ runner.os }}-build-${{ hashFiles('src/**', 'tests/**', 'CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
       - name: Configure CMake
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
@@ -28,4 +47,37 @@ jobs:
 
       - name: Run tests
         working-directory: build
-        run: ctest --output-on-failure -C Release
+        run: ctest --output-on-failure -C Release --output-junit test-report.xml
+
+      # --- Артефакты ---
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.os }}
+          path: build/test-report.xml
+          if-no-files-found: warn
+
+      - name: Upload dataconv binary (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataconv-ubuntu
+          path: build/dataconv
+          if-no-files-found: warn
+
+      - name: Upload dataconv binary (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataconv-macos
+          path: build/dataconv
+          if-no-files-found: warn
+
+      - name: Upload dataconv binary (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataconv-windows
+          path: build/Release/dataconv.exe
+          if-no-files-found: warn
